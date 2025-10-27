@@ -54,3 +54,7 @@ jobs:
         run: |
           docker tag ${{ github.repository }}:latest ${{ secrets.DOCKERHUB_USERNAME }}/devopslab:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/devopslab:latest
+
+
+
+# //checking cicd

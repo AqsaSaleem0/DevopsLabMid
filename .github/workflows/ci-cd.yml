@@ -29,3 +29,6 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/devopslab:latest
+
+
+# add

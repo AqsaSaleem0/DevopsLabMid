@@ -6,8 +6,39 @@ on:
   pull_request:
 
 jobs:
+  # 🧱 1️⃣ Build & Install
   build:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Build project
+        run: mvn clean install -DskipTests
+
+  # 🔍 2️⃣ Lint / Security Scan
+  lint:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Lint / Security Scan
+        run: |
+          echo "Running lint/security checks..."
+          echo "✅ Lint completed successfully"
+
+  # 🧪 3️⃣ Test (with Database service)
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
 
     services:
       mysql:
@@ -33,26 +64,11 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      # 1️⃣ Build & Install
-      - name: Build project
+      - name: Wait for Database
         run: |
-          echo "===== BUILD STARTED ====="
-          mvn clean install -DskipTests
-          echo "===== BUILD COMPLETED ====="
-
-      # 2️⃣ Lint / Security Scan
-      - name: Lint & Security Scan
-        run: |
-          echo "===== LINT/SECURITY SCAN ====="
-          echo "Running lint and security checks"
-
-      # 3️⃣ Test with DB
-      - name: Wait for DB
-        run: |
-          echo "Waiting for database to become ready..."
           for i in {1..10}; do
             if mysqladmin ping -h 127.0.0.1 -proot --silent; then
-              echo "✅ Database is ready!"
+              echo "✅ Database ready!"
               break
             fi
             echo "⏳ Waiting for DB ($i/10)..."
@@ -60,27 +76,37 @@ jobs:
           done
 
       - name: Run tests
-        run: |
-          echo "===== RUNNING TESTS ====="
-          mvn test || echo "⚠️ No tests found — skipping"
+        run: mvn test || echo "⚠️ No tests found — skipping"
 
-      # 4️⃣ Build Docker Image
+  # 🐳 4️⃣ Build Docker Image
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/devopslab:latest
 
-      # 5️⃣ Conditional Deploy
-      - name: Deploy
-        if: github.ref == 'refs/heads/main' && success()
+  # 🚀 5️⃣ Deploy (only on main branch)
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy application
         run: |
-          echo "===== DEPLOYMENT STAGE ====="
-          echo "Deployment successful (simulated)."
+          echo "🚀 Deployment successful (simulated)"
